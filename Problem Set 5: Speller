@@ -1,0 +1,127 @@
+// Implements a dictionary's functionality
+
+#include <stdbool.h>
+#include "dictionary.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <cs50.h>
+int word_counter = 0; //dictionary word counter
+
+// Represents a node in a hash table
+typedef struct node
+{
+    char word[LENGTH + 1];
+    struct node *next;
+}
+node;
+
+// Number of buckets in hash table
+const unsigned int N = 52; // each letter is split into 2 buckets using letter m as the breaking point
+
+// Hash table
+node *table[N];
+
+// Hashes word to a number
+unsigned int hash(const char *word)
+{
+    for (int j = 65; j < 91; j++) //check to what ascii code the first letter of the word corresponds
+    {
+        if ((int) word[0] == j || (int) word[0] == j + 32) // check for upper and lower case
+        {
+            if (((int) word[1] <= 77 && (int) word[1] >= 65) ||
+                ((int) word[1] <= 109 && (int) word[1] >= 97)) //check if the second letter of the word is between A/a and M/m
+            {
+                int hash = (j - 65) * 2; // word goes into the first bucket of the letter
+                return hash;
+            }
+            if (((int) word[1] > 77 && (int) word[1] <= 91) ||
+                ((int) word[1] > 109 && (int) word[1] <= 122)) //check if the second letter of the word is between N/n and Z/z
+            {
+                int hash = (j - 65) * 2 + 1; // word goes into the second bucket of the letter
+                return hash;
+            }
+        }
+    }
+    return 0;
+}
+
+// Loads dictionary into memory, returning true if successful else false
+bool load(const char *dictionary)
+{
+    FILE *file = fopen(dictionary, "r"); // open the dictionary file and create a pointer to it
+    if (file == NULL) // check for error
+    {
+        return false;
+    }
+    char buffer[LENGTH + 1]; // character array used for extracting each word from the dictionary
+    while (fscanf(file, "%s", buffer) != EOF) // extract each word from file into buffer if not at the end of the file
+    {
+        node *n = malloc(sizeof(node));// allocate memory for a node
+        if (n == NULL) // check for sufficient memory
+        {
+            fclose(file);
+            return false;
+        }
+        
+        strcpy(n->word, buffer); //copy the word into the node
+        n -> next = NULL; //assign temporarily pointer value to the node
+        
+        int hash_idx = hash(buffer); //extract hash bucket number of the word
+        node *list = table[hash_idx]; // create a header pointing to what the pointer in the bucket is pointing to
+        
+        if (list == NULL) // check if the pointer is empty
+        {
+            table[hash_idx] = n; //if yes, point to the node
+        }
+        else // if pointer is not empty
+        {
+            n->next = table[hash_idx]; //point to the start of the linked list
+            table[hash_idx] = n; //update the pointer of the linked list to point at the node
+        }
+        word_counter++; // count the word
+    }
+    fclose(file);
+    return true;
+}
+
+// Returns true if word is in dictionary else false
+bool check(const char *word)
+{
+    int hash_idx = hash(word); //obtain the hash bucket value
+    node *current; //create a cursor(node pointer)
+    current = table[hash_idx]; // point cursor to the start of the linked list
+    while (current != NULL) // if there are still linked nodes remaining (not finished the list)
+    {
+        if (strcasecmp(current->word, word) == 0) // check if the word in the node matches the text
+        {
+            return true; // if yes, return true
+        }
+        current = current -> next; // if no, move to the next node 
+    }
+    return false;
+}
+
+// Returns number of words in dictionary if loaded else 0 if not yet loaded
+unsigned int size(void)
+{
+    return word_counter;
+}
+
+// Unloads dictionary from memory, returning true if successful else false
+bool unload(void)
+{
+    for (int i = 0; i < N; i++)
+    {
+        node *cursor = table[i];
+        while (cursor != NULL) // if not on the last node
+        {
+            node *tmp = cursor; // make tmp point where the cursor points
+            cursor = cursor->next; // advance the cursor to the next node
+            free(tmp); // free up the previous node
+        }
+        free(cursor); // free the last node
+    }
+    return true;
+}
